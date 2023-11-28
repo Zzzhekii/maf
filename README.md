@@ -1,0 +1,2 @@
+# maf
+Minimal Archive Format
