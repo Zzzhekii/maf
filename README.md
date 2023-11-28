@@ -1,7 +1,7 @@
 # Minimal Archive Format
 Minimal Archive Format (MAF) is a lightweight and simple archive format.
 # Architechture
-MAF files always consist of an archive header, optional MIME string, entry table, and the entries themselves (in that order).
+MAF files always consist of an archive header, optional MIME string, entry table, entry metadata, and the entries themselves (in that order).
 An entry is made up of and entry header and the payload.
 ## Archive header
 Archive header starts at the very beginning of the MAF file.
