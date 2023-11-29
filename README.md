@@ -21,8 +21,8 @@ Position and size in the following table are listed in bytes:
 | 11 - 12  | 2    | NOT YET IMPLEMETED. MUST BE 0! MIME string length in bytes (optional, could be 0)                               |
 | 13 - 16  | 4    | Amount of entries                                                                                               |
 | 17 - 24  | 8    | Size of the EPL in bytes                                                                                        |
-| 25 - 30  | 16   | Size of the EDL in bytes                                                                                        |
-| 31 - 64  | 34   | Reserved (must be 0)                                                                                            |
+| 25 - 40  | 16   | Size of the EDL in bytes                                                                                        |
+| 41 - 64  | 24   | Reserved (must be 0)                                                                                            |
 ## Mime string (optional)
 ### CURRENTLY NOT STANDARDIZED - MUST NOT BE USED
 
