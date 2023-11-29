@@ -4,6 +4,9 @@ Minimal Archive Format (MAF) is a lightweight and simple archive format.
 This repository provides a reference MAF-compatible archiver written in Rust. 
 
 # Format Specification
+The standard extension of MAF archives is '.maf'.
+Compressed MAF archives should have a following extension: '.maf.<compression_algorithm>', where <compression_algorithm> is the compression algorithm (or it's usual abreviation) used to compress the archive. Example: '.maf.gz' could be a MAF archive compressed with the GZIP algorithm. 
+
 MAF files always consist of an archive header, optional MIME string, entry mapping list (EML), entry path list (EPL), and the entry data list (EDL) one right after the other (in that exact order).
 ### ALL NUMBERS USED IN HEADERS, AND THE ENTRY METADATA ARE IN LITTLE ENDIAN
 ### NO STRINGS ARE NULL-TERMINATED UNLESS THAT IS STATED SPECIFICALLY
