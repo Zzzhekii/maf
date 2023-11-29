@@ -36,7 +36,7 @@ To figure out the length of an entry path (data), apart from the last one, MAF-c
 ## Entry path list (EPL)
 EPL constists of paths encoded in ASCII written right after another.
 A path is made up of multiple names (directories and file names) that are allowed to include alphanumeric characters (A-Z, a-z, and 0-9), spaces, blanks, mathematical symbols (+ - = | ~ ( ) < > { } \), punctuation marks (? , . ! ; : ' " / [ ]), and the following special characters: &, %, $, #, @, ^, *, and _.
-## Note that the slash '/' character is treated as a path separater. It can be escaped by putting double slash ('//') instead.
+### Note that the slash '/' character is treated as a path separater. It can be escaped by putting double slash ('//') instead.
 Each path **must** have a matching entry mapping in the EML.
 
 ## Entry data list (EDL)
