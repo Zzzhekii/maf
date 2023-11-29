@@ -10,6 +10,7 @@ Compressed MAF archives should have a following extension: '.maf.<compression_al
 # Format Specification
 MAF files always consist of an archive header, optional MIME string, entry mapping list (EML), entry path list (EPL), and the entry data list (EDL) one right after the other (in that exact order).
 ### ALL NUMBERS USED IN HEADERS, AND THE ENTRY METADATA ARE IN LITTLE ENDIAN
+### ALL TABLES COULD BE REPRESENTED AS A C STRUCT
 ### NO STRINGS ARE NULL-TERMINATED UNLESS THAT IS STATED SPECIFICALLY
 ## Archive header
 Archive header starts at the very beginning of the MAF file.
@@ -21,8 +22,8 @@ Position and size in the following table are listed in bytes:
 | 11 - 12  | 2    | NOT YET IMPLEMETED. MUST BE 0! MIME string length in bytes (optional, could be 0)                               |
 | 13 - 16  | 4    | Amount of entries                                                                                               |
 | 17 - 24  | 8    | Size of the EPL in bytes                                                                                        |
-| 25 - 30  | 16   | Size of the EDL in bytes                                                                                        |
-| 31 - 64  | 34   | Reserved (must be 0)                                                                                            |
+| 25 - 40  | 16   | Size of the EDL in bytes                                                                                        |
+| 41 - 64  | 24   | Reserved (must be 0)                                                                                            |
 ## Mime string (optional)
 ### CURRENTLY NOT STANDARDIZED - MUST NOT BE USED
 
