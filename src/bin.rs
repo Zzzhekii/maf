@@ -3,8 +3,7 @@ use maf;
 
 const USAGE: &str = "USAGE: mafar [unpack or pack] ...
 \tunpack [MAF archive file] [path to unpack to]
-\tpack   [list of files/directories to pack] [MAF archive out path]
-";
+\tpack   [list of files/directories to pack] [MAF archive out path]";
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
