@@ -9,7 +9,7 @@ Compressed MAF archives should have a following extension: '.maf.<compression_al
 
 # Format Specification
 MAF files always consist of an archive header, entry data list (EDL), optional MIME string, entry mapping list (EML), entry path list (EPL), and the  one right after the other (in that exact order).
-### ALL NUMBERS USED IN HEADERS, AND THE ENTRY METADATA ARE IN LITTLE ENDIAN
+### ALL NUMBERS USED IN THE FOLLOWING TABLES ARE LITTLE ENDIAN
 ### ALL TABLES COULD BE REPRESENTED AS A C STRUCT
 ### NO STRINGS ARE NULL-TERMINATED UNLESS THAT IS STATED SPECIFICALLY
 ## Archive header
