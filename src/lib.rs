@@ -1,119 +1,200 @@
-use std::collections::hash_map::Entry;
+use std::io::Read;
 
-#[no_main]
-#[no_std]
+const MAF_MAGIC_VALUE: [u8; 9] = [0xBA, 0xDA, 0x55, 0x6D, 0x61, 0x66, 0x67, 0x65, 0x78];
 
-const MAGIC_VALUE: [u8; 9] = [0xBA, 0xDA, 0x55, 0x6D, 0x61, 0x66, 0x67, 0x65, 0x78];
-
-#[derive(Debug)]
-pub struct Archive<'a> {
-    pub header: ArchiveHeader,
-    pub entry_mapping_list: Vec<EntryMapping>,
-    pub entry_path_list: Vec<&'a [u8]>,
-    pub entry_data_list: Vec<&'a [u8]>,
+#[derive(Debug, Clone, PartialOrd, PartialEq)]
+pub struct Path {
+    path: String,
 }
 
-impl<'a> Archive<'a> {
-    pub fn from_raw_bytes(bytes: &'a [u8]) -> Result<Self, ()> {
-        unsafe fn bytes_to_struct<T: Sized>(bytes: &[u8]) -> Result<&T, ()> {
-            let (head, body, _tail) = unsafe { bytes.align_to::<T>() };
-            // if head.is_empty() {
-            //     return Err(())
-            // }
-            Ok(&body[0])
+impl Path {
+    fn is_legal_path_char(ch: char) -> bool {
+        if ch.is_ascii_alphanumeric() || ch.is_ascii_punctuation() || ch == ' ' {
+            return true;
         }
+        false
+    }
 
-        const HEADER_SIZE: usize = core::mem::size_of::<ArchiveHeader>();
-        const ENTRY_MAPPING_SIZE: usize = core::mem::size_of::<EntryMapping>();
-
-        let header = (*unsafe { bytes_to_struct::<ArchiveHeader>(&bytes[0..HEADER_SIZE]) }?).clone();
-
-        let entry_mapping_list_offset = HEADER_SIZE + header.mime_length as usize;
-        let mut entry_mapping_list: Vec<EntryMapping> = Vec::new();
-        for i in 0..header.entry_amount as usize {
-            let offset = entry_mapping_list_offset + i * ENTRY_MAPPING_SIZE;
-            let entry_mapping = unsafe {
-                bytes_to_struct::<EntryMapping>(&bytes[offset..offset + ENTRY_MAPPING_SIZE])
-            }?;
-            entry_mapping_list.push((*entry_mapping).clone());
+    fn is_legal_path_str(path: &str) -> bool {
+        for ch in path.chars() {
+            if !Self::is_legal_path_char(ch) {
+                return false;
+            }
         }
+        true
+    }
 
-        let entry_path_list_offset =
-            entry_mapping_list_offset + header.entry_amount as usize * ENTRY_MAPPING_SIZE;
-        let mut entry_path_list: Vec<&[u8]> = Vec::new();
-        for i in 0..header.entry_amount as usize {
-            let offset = entry_path_list_offset + entry_mapping_list[i].entry_path_offset as usize;
-            let length = if let Some(mapping) = entry_mapping_list.get(i + 1) {
-                mapping.entry_path_offset
-            } else {
-                header.entry_path_list_size
-            } - entry_mapping_list[i].entry_path_offset;
-            let entry_path = &bytes[offset..length as usize + offset];
-            entry_path_list.push(entry_path);
+    pub fn from_maf_str(path: &str) -> Result<Self, Error> {
+        if !Self::is_legal_path_str(path) {
+            return Err(Error::IllegalPath {
+                path: Box::new(path.to_string()),
+            });
         }
-
-        let entry_data_list_offset = entry_path_list_offset + header.entry_path_list_size as usize;
-        let mut entry_data_list: Vec<&[u8]> = Vec::new();
-        for i in 0..header.entry_amount as usize  {
-            let offset = entry_data_list_offset + entry_mapping_list[i].entry_data_offset as usize;
-            let length = if let Some(mapping) = entry_mapping_list.get(i + 1) {
-                mapping.entry_data_offset
-            } else {
-                header.entry_data_list_size
-            } - entry_mapping_list[i].entry_data_offset;
-            let entry_data = &bytes[offset..length as usize + offset];
-            entry_data_list.push(entry_data)
-        }
-
         Ok(Self {
-            header,
-            entry_mapping_list,
-            entry_path_list,
-            entry_data_list,
+            path: path.to_string(),
         })
     }
 
-    pub fn to_raw_bytes(&self) -> Vec<u8> {
-        unsafe fn struct_to_bytes<T: Sized>(p: &T) -> &[u8] {
-            core::slice::from_raw_parts::<u8>(
-                (p as *const T) as *const u8,
-                core::mem::size_of::<T>(),
-            )
+    pub fn from_unix_str(path: &str) -> Result<Self, Error> {
+        if !Self::is_legal_path_str(path) {
+            return Err(Error::IllegalPath {
+                path: Box::new(path.to_string()),
+            });
         }
-
-        let mut result = unsafe { struct_to_bytes(&self.header) }.to_vec();
-
-        result.append(
-            &mut self
-                .entry_mapping_list
-                .iter()
-                .map(|e| unsafe { struct_to_bytes(e) })
-                .collect::<Vec<&[u8]>>()
-                .concat(),
-        );
-
-        result.append(&mut self.entry_path_list.concat());
-        result.append(&mut self.entry_data_list.concat());
-
-        result
+        Ok(Self {
+            path: path.to_string(),
+        })
     }
 
-    /// Returns Vec<(path, data)>
-    pub fn list_entries(&self) -> Vec<(&[u8], &[u8])> {
-        let mut entries: Vec<(&[u8], &[u8])> = Vec::new();
-        for i in 0..self.entry_mapping_list.len() {
-            entries.push((
-                self.entry_path_list[i],
-                self.entry_data_list[i],
-            ))
-        }
-        entries
+    pub fn path(&self) -> &str {
+        return &self.path;
     }
 }
 
-#[derive(Debug, Clone)]
+pub struct Archive {
+    entries: Vec<Entry>,
+}
+
+impl Archive {
+    pub fn builder<R: Read>() -> ArchiveBuilder<R> {
+        ArchiveBuilder::new()
+    }
+
+    pub fn entries(&self) -> &Vec<Entry> {
+        &self.entries
+    }
+
+    pub fn read<R: Read>(source: &mut R) -> Result<Self, Error> {
+        // Read the source.
+        let mut bytes: Vec<u8> = Vec::new();
+        source.read_to_end(&mut bytes).unwrap();
+
+        // Read the header
+        let Ok(header) =
+            (unsafe { bytes_to_struct::<Header>(&bytes[0..std::mem::size_of::<Header>()]) })
+        else {
+            return Err(Error::HeaderReadError);
+        };
+
+        // Check the magic value.
+        if header.magic_value != MAF_MAGIC_VALUE {
+            return Err(Error::WrongMagicValue);
+        }
+
+        // Calculate the offsets.
+        let data_list_offset = std::mem::size_of::<Header>();
+        let mime_offset = data_list_offset + header.entry_data_list_size as usize;
+        let mapping_list_offset = mime_offset + header.mime_length as usize;
+        let path_list_offset = mapping_list_offset
+            + header.entry_amount as usize * std::mem::size_of::<EntryMapping>();
+
+        // Read the mappings.
+        let mut mappings: Vec<&EntryMapping> = Vec::new();
+        for i in 0..header.entry_amount as usize {
+            let mapping_offset = mapping_list_offset + i * std::mem::size_of::<EntryMapping>();
+
+            let Ok(mapping) = (unsafe {
+                bytes_to_struct::<EntryMapping>(
+                    &bytes[mapping_offset..mapping_offset + std::mem::size_of::<EntryMapping>()],
+                )
+            }) else {
+                return Err(Error::MappingReadError { index: i });
+            };
+
+            mappings.push(mapping);
+        }
+
+        // Read the lists.
+        let mut entries: Vec<Entry> = Vec::new();
+        for (i, mapping) in mappings.iter().enumerate() {
+            // Calculate ending offsets.
+            let (path_end_offset, data_end_offset) = if let Some(mapping) = mappings.get(i + 1) {
+                (
+                    path_list_offset + mapping.entry_path_offset as usize,
+                    data_list_offset + mapping.entry_data_offset as usize,
+                )
+            } else {
+                (
+                    path_list_offset + header.entry_path_list_size as usize,
+                    data_list_offset + header.entry_data_list_size as usize,
+                )
+            };
+
+            let Ok(path) = String::from_utf8(
+                bytes[path_list_offset + mapping.entry_path_offset as usize..path_end_offset]
+                    .to_vec(),
+            ) else {
+                return Err(Error::PathReadError { index: i });
+            };
+
+            entries.push(Entry {
+                path: Path::from_maf_str(&path).unwrap(),
+                contents: bytes[data_list_offset + mapping.entry_data_offset as usize..data_end_offset].to_vec(),
+            });
+        }
+
+        Ok(Self { entries })
+    }
+
+    pub fn to_bytes(self) -> Vec<u8> {
+        let mut header = Header {
+            magic_value: MAF_MAGIC_VALUE,
+            version_number: 0,
+            mime_length: 0,
+            entry_amount: self.entries.len() as u32,
+            entry_path_list_size: 0,
+            entry_data_list_size: 0,
+            _reserved: [0u8; 24],
+        };
+
+        let mut entry_paths: Vec<u8> = Vec::new();
+        let mut entry_mappings: Vec<u8> = Vec::new();
+        let mut entry_data: Vec<u8> = Vec::new();
+
+        // Populate all the lists, and update the header.
+        for mut entry in self.entries {
+            let mut path = entry.path.path().as_bytes().to_vec();
+            let path_length = path.len();
+            let contents_length = entry.contents.len();
+
+            // Add the path and the data.
+            entry_paths.append(&mut path);
+            entry_data.append(&mut entry.contents);
+
+            // Add the mapping.
+            let mapping = EntryMapping {
+                entry_path_offset: header.entry_path_list_size,
+                entry_data_offset: header.entry_data_list_size,
+                _reserved: 0,
+            };
+
+            entry_mappings
+                .append(&mut unsafe { struct_to_bytes::<EntryMapping>(&mapping) }.to_vec());
+
+            // Update the size fields in the header
+            header.entry_path_list_size += path_length as u64;
+            header.entry_data_list_size += contents_length as u128;
+        }
+
+        [
+            unsafe { struct_to_bytes::<Header>(&header) },
+            &entry_data,
+            &entry_mappings,
+            &entry_paths,
+        ]
+        .concat()
+    }
+}
+
+#[derive(Debug)]
+pub struct Entry {
+    pub path: Path,
+    pub contents: Vec<u8>,
+}
+
+#[derive(Debug)]
 #[repr(C, packed)]
-pub struct ArchiveHeader {
+struct Header {
     pub magic_value: [u8; 9],
     pub version_number: u8,
     pub mime_length: u16,
@@ -123,74 +204,72 @@ pub struct ArchiveHeader {
     pub _reserved: [u8; 24],
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 #[repr(C, packed)]
-pub struct EntryMapping {
+struct EntryMapping {
     pub entry_path_offset: u64,
     pub entry_data_offset: u128,
     pub _reserved: u64,
 }
 
-#[derive(Debug)]
-pub struct Path<'a>(pub &'a [u8]);
-
-pub struct Builder<'a> {
-    entries: Vec<(Path<'a>, &'a [u8])>,
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error("Illegal path was provided: `{path:?}`")]
+    IllegalPath { path: Box<dyn std::fmt::Debug> },
+    #[error("Couldn't read the archive's header")]
+    HeaderReadError,
+    #[error("Wrong magic value in the archive's header")]
+    WrongMagicValue,
+    #[error("Couldn't read an entry's mapping by index `{index}`")]
+    MappingReadError { index: usize },
+    #[error("Couldn't read an entry's path by index `{index}`")]
+    PathReadError { index: usize },
 }
 
-impl<'a> Builder<'a> {
+pub struct ArchiveBuilder<R: Read> {
+    entries: Vec<(Path, R)>,
+}
+
+impl<R: Read> ArchiveBuilder<R> {
     pub fn new() -> Self {
-        Self { entries: vec![] }
-    }
-
-    pub fn build(&self) -> Archive {
-        let mut entry_mapping_list: Vec<EntryMapping> = Vec::new();
-        let mut entry_path_list: Vec<&[u8]> = Vec::new();
-        let mut entry_data_list: Vec<&[u8]> = Vec::new();
-
-        let mut entry_data_list_size: u128 = 0;
-        let mut entry_path_list_size: u64 = 0;
-
-        for (path, data) in &self.entries {
-            let entry_index = entry_mapping_list.len();
-
-            let path = path.0;
-
-            entry_mapping_list.push(EntryMapping {
-                entry_path_offset: entry_path_list_size,
-                entry_data_offset: entry_data_list_size,
-                _reserved: 0,
-            });
-
-            entry_data_list.push(data);
-            entry_path_list.push(path);
-
-            entry_data_list_size += data.len() as u128;
-            entry_path_list_size += path.len() as u64;
+        Self {
+            entries: Vec::new(),
         }
-
-        let header = ArchiveHeader {
-            magic_value: MAGIC_VALUE,
-            version_number: 0,
-            mime_length: 0,
-            entry_amount: self.entries.len() as u32,
-            entry_path_list_size,
-            entry_data_list_size,
-            _reserved: [0u8; 24],
-        };
-
-        let mut archive = Archive {
-            header,
-            entry_mapping_list,
-            entry_path_list,
-            entry_data_list,
-        };
-
-        archive
     }
 
-    pub fn add_entry(&mut self, path: Path<'a>, data: &'a [u8]) -> &mut Self {
-        self.entries.push((path, data));
+    pub fn add_entry(&mut self, path: Path, contents: R) -> &mut Self {
+        self.entries.push((path, contents));
         self
     }
+
+    pub fn build(mut self) -> Archive {
+        let entries: Vec<Entry> = self
+            .entries
+            .iter_mut()
+            .map(|(path, read_contents)| {
+                let mut contents: Vec<u8> = Vec::new();
+                read_contents.read_to_end(&mut contents).unwrap();
+
+                Entry {
+                    path: path.clone(),
+                    contents,
+                }
+            })
+            .collect();
+
+        Archive { entries }
+    }
+}
+
+unsafe fn bytes_to_struct<T: Sized>(bytes: &[u8]) -> Result<&T, ()> {
+    // TODO: ERROR REPORTING
+    let (_head, body, _tail) = unsafe { bytes.align_to::<T>() };
+    // if head.is_empty() {
+    //     return Err(());
+    // }
+    Ok(&body[0])
+}
+
+unsafe fn struct_to_bytes<T: Sized>(p: &T) -> &[u8] {
+    core::slice::from_raw_parts::<u8>((p as *const T) as *const u8, core::mem::size_of::<T>())
 }
