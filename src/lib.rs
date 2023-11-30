@@ -129,7 +129,9 @@ impl Archive {
 
             entries.push(Entry {
                 path: Path::from_maf_str(&path).unwrap(),
-                contents: bytes[data_list_offset + mapping.entry_data_offset as usize..data_end_offset].to_vec(),
+                contents: bytes
+                    [data_list_offset + mapping.entry_data_offset as usize..data_end_offset]
+                    .to_vec(),
             });
         }
 

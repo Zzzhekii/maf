@@ -1,28 +1,61 @@
 // use maf;
 
-// const USAGE: &str = "USAGE: mafar [unpack or pack] ...
-// \tunpack [MAF archive file] [path to unpack to]
-// \tpack   [list of files/directories to pack] [MAF archive out path]";
+use std::fs;
+
+const USAGE: &str = "USAGE: mafar [unpack or pack] ...
+\tunpack [MAF archive file] [path to unpack to]
+\tpack   [list of files/directories to pack] [MAF archive out path]";
 
 fn main() {
-    // TODO: WRITE THE COMMAND LINE INTERFACE YOU SHITFACE!
+    macro_rules! exit_usage {
+        () => {{
+            println!("{}", USAGE);
+            return;
+        }};
+    }
 
-    // let mut archive_builder = maf::Archive::builder();
-    // let archive = archive_builder
-    //     .add_entry(
-    //         maf::Path::from_unix_str("bruh/lmao.txt").unwrap(),
-    //         "Lorem ipsum baby".as_bytes(),
-    //     )
-    //     .add_entry(
-    //         maf::Path::from_unix_str("skull_emoji.txt").unwrap(),
-    //         "I read smut about Jesus".as_bytes(),
-    //     )
-    //     .build();
-    // let bytes = archive.to_bytes();
-    // std::fs::write("out.maf", bytes).unwrap();
+    let args: Vec<String> = std::env::args().skip(1).collect();
 
-    // let archive = maf::Archive::read(&mut std::fs::read("out.maf").unwrap().as_slice()).unwrap();
-    // archive.entries()
-    //     .iter()
-    //     .for_each(|entry| println!("{}", String::from_utf8(entry.contents.clone()).unwrap()));
+    if args.len() < 3 {
+        exit_usage!();
+    }
+
+    match args[0].as_str() {
+        "unpack" => {
+            if args.len() != 3 {
+                exit_usage!()
+            }
+
+            let archive_path = &args[1];
+            let out_path = &args[2];
+
+            let Ok(archive_bytes) = fs::read(archive_path) else {
+                println!("Couldn't read the provided archive file `{}`", archive_path);
+                return;
+            };
+
+            let archive = maf::Archive::read(&mut archive_bytes.as_slice()).unwrap();
+
+            for entry in archive.entries() {
+                let path = std::path::Path::new(out_path)
+                    .join(std::path::Path::new(entry.path.path()));
+                // Create the directories
+                if let Some(parent) = path.clone().parent() {
+                    std::fs::create_dir_all(parent).unwrap();
+                }
+                // Write the file entry
+                std::fs::write(
+                    path
+                    .to_str()
+                    .unwrap(),
+                    &entry.contents,
+                )
+                .unwrap();
+            }
+        }
+        "pack" => {
+            // TODO: Add packing functionality
+        }
+        _ => exit_usage!(),
+    }
 }
