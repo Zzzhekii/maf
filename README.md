@@ -8,7 +8,7 @@ The standard extension of MAF archives is '.maf'.
 Compressed MAF archives should have a following extension: '.maf.<compression_algorithm>', where <compression_algorithm> is the compression algorithm (or it's usual abreviation) used to compress the archive. Example: '.maf.gz' could be a MAF archive compressed with the GZIP algorithm.
 
 # Format Specification
-MAF files always consist of an archive header, optional MIME string, entry mapping list (EML), entry path list (EPL), and the entry data list (EDL) one right after the other (in that exact order).
+MAF files always consist of an archive header, entry data list (EDL), optional MIME string, entry mapping list (EML), entry path list (EPL), and the  one right after the other (in that exact order).
 ### ALL NUMBERS USED IN HEADERS, AND THE ENTRY METADATA ARE IN LITTLE ENDIAN
 ### ALL TABLES COULD BE REPRESENTED AS A C STRUCT
 ### NO STRINGS ARE NULL-TERMINATED UNLESS THAT IS STATED SPECIFICALLY
@@ -24,6 +24,12 @@ Position and size in the following table are listed in bytes:
 | 17 - 24  | 8    | Size of the EPL in bytes                                                                                        |
 | 25 - 40  | 16   | Size of the EDL in bytes                                                                                        |
 | 41 - 64  | 24   | Reserved (must be 0)                                                                                            |
+
+## Entry data list (EDL)
+EDL consists of entry data (raw bytes) right after another.
+Entry data is the contents of a file by it's matching entry path (in it's entry mapping).
+Entry data can be any sequence of bytes
+
 ## Mime string (optional)
 ### CURRENTLY NOT STANDARDIZED - MUST NOT BE USED
 
@@ -43,8 +49,3 @@ EPL constists of paths encoded in ASCII written right after another.
 A path is made up of multiple names (directories and file names) that are allowed to include alphanumeric characters (A-Z, a-z, and 0-9), spaces, blanks, mathematical symbols (+ - = | ~ ( ) < > { } \), punctuation marks (? , . ! ; : ' " / [ ]), and the following special characters: &, %, $, #, @, ^, *, and _.
 ### Note that the slash '/' character is treated as a path separater. It can be escaped by putting double slash ('//') instead.
 Each path **must** have a matching entry mapping in the EML.
-
-## Entry data list (EDL)
-EDL consists of entry data (raw bytes) right after another.
-Entry data is the contents of a file by it's matching entry path (in it's entry mapping).
-Entry data can be any sequence of bytes
