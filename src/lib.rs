@@ -244,6 +244,11 @@ impl<R: Read> ArchiveBuilder<R> {
         self
     }
 
+    pub fn add_entry_list(&mut self, list: &mut Vec<(Path, R)>) -> &mut Self {
+        self.entries.append(list);
+        self
+    }
+
     pub fn build(mut self) -> Archive {
         let entries: Vec<Entry> = self
             .entries

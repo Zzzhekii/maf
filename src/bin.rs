@@ -1,5 +1,8 @@
 use maf;
 
+use walkdir;
+use walkdir::WalkDir;
+
 const USAGE: &str = "USAGE: mafar [unpack or pack] ...
 \tunpack [MAF archive file] [path to unpack to]
 \tpack   [list of files/directories to pack] [MAF archive out path]";
@@ -35,20 +38,14 @@ fn main() {
             let archive = maf::Archive::read(&mut archive_bytes.as_slice()).unwrap();
 
             for entry in archive.entries() {
-                let path = std::path::Path::new(out_path)
-                    .join(std::path::Path::new(entry.path.path()));
+                let path =
+                    std::path::Path::new(out_path).join(std::path::Path::new(entry.path.path()));
                 // Create the directories
                 if let Some(parent) = path.clone().parent() {
                     std::fs::create_dir_all(parent).unwrap();
                 }
                 // Write the file entry
-                std::fs::write(
-                    path
-                    .to_str()
-                    .unwrap(),
-                    &entry.contents,
-                )
-                .unwrap();
+                std::fs::write(path.to_str().unwrap(), &entry.contents).unwrap();
             }
         }
         "pack" => {
@@ -57,22 +54,41 @@ fn main() {
 
             let mut archive_builder = maf::Archive::builder();
 
-            let mut content_list: Vec<Vec<u8>> = Vec::new();
-            let mut paths: Vec<maf::Path> = Vec::new();
+            let mut archive_entries: Vec<(maf::Path, Vec<u8>)> = Vec::new();
 
             for path in file_paths {
-                content_list.push(std::fs::read(path).unwrap());
-                paths.push(maf::Path::from_unix_str(path).unwrap());
+                for entry in WalkDir::new(path) {
+                    let Ok(entry) = entry else {
+                        println!("Couldn't read a source file `{}`", path);
+                        continue
+                    };
+
+                    if entry.metadata().unwrap().is_dir() {
+                        continue;
+                    }
+
+                    let relative_path = entry.path().strip_prefix(std::path::Path::new(path)).unwrap();
+                    let relative_path = if relative_path.to_str().unwrap().len() > 0 {
+                        relative_path
+                    } else {
+                        std::path::Path::new(entry.path().file_name().unwrap())
+                    };
+
+                    archive_entries.push((
+                        maf::Path::from_unix_str(relative_path.to_str().unwrap()).unwrap(),
+                        std::fs::read(entry.path()).unwrap()
+                    ));
+                }
             }
 
-            for i in 0..file_paths.len() {
-                archive_builder.add_entry(
-                    paths[i].clone(),
-                    content_list[i].as_slice(),
-                );
-            }
+            let mut archive_entries: Vec<(maf::Path, &[u8])> = archive_entries
+                .iter()
+                .map(|(path, contents)| (path.clone(), contents.as_slice()))
+                .collect();
 
-            std::fs::write(out_path, archive_builder.build().to_bytes()).unwrap()
+            archive_builder.add_entry_list(&mut archive_entries);
+
+            std::fs::write(out_path, archive_builder.build().to_bytes()).unwrap();
         }
         _ => exit_usage!(),
     }

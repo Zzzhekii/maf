@@ -16,3 +16,4 @@ path = "src/bin.rs"
 
 [dependencies]
 thiserror = "1.0.50"
+walkdir = "2.4.0"
