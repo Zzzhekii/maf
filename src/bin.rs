@@ -1,6 +1,4 @@
-// use maf;
-
-use std::fs;
+use maf;
 
 const USAGE: &str = "USAGE: mafar [unpack or pack] ...
 \tunpack [MAF archive file] [path to unpack to]
@@ -29,7 +27,7 @@ fn main() {
             let archive_path = &args[1];
             let out_path = &args[2];
 
-            let Ok(archive_bytes) = fs::read(archive_path) else {
+            let Ok(archive_bytes) = std::fs::read(archive_path) else {
                 println!("Couldn't read the provided archive file `{}`", archive_path);
                 return;
             };
@@ -54,7 +52,27 @@ fn main() {
             }
         }
         "pack" => {
-            // TODO: Add packing functionality
+            let file_paths = &args[1..args.len() - 1];
+            let out_path = &args[args.len() - 1];
+
+            let mut archive_builder = maf::Archive::builder();
+
+            let mut content_list: Vec<Vec<u8>> = Vec::new();
+            let mut paths: Vec<maf::Path> = Vec::new();
+
+            for path in file_paths {
+                content_list.push(std::fs::read(path).unwrap());
+                paths.push(maf::Path::from_unix_str(path).unwrap());
+            }
+
+            for i in 0..file_paths.len() {
+                archive_builder.add_entry(
+                    paths[i].clone(),
+                    content_list[i].as_slice(),
+                );
+            }
+
+            std::fs::write(out_path, archive_builder.build().to_bytes()).unwrap()
         }
         _ => exit_usage!(),
     }
