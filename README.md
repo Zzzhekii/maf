@@ -19,7 +19,7 @@ Position and size in the following table are listed in bytes:
 |----------|------|-----------------------------------------------------------------------------------------------------------------|
 | 1 - 9    | 9    | Magic value (must always be 0xBADA556D6166676578 in hexadecimal (could be interpreted as 'ºÚUmafgex' in ASCII)) |
 | 10       | 1    | MAF version number (this specification requires it to be 0)                                                     |
-| 11 - 12  | 2    | NOT YET IMPLEMETED. MUST BE 0! MIME string length in bytes (optional, could be 0)                               |
+| 11 - 12  | 2    | NOT YET IMPLEMETED. MUST BE 0! MIME string length in bytes (optional, could be 0), maximum length is 65535      |
 | 13 - 16  | 4    | Amount of entries                                                                                               |
 | 17 - 24  | 8    | Size of the EPL in bytes                                                                                        |
 | 25 - 40  | 16   | Size of the EDL in bytes                                                                                        |
